@@ -1,0 +1,98 @@
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+# class HelperState(TypedDict):
+#     question: str      # 用户的问题（输入）
+#     category: str      # 分类结果：concept / code / chat（中间结果）
+#     answer:   str      # 最终回应（输出）
+#
+#
+# def classify_node(state: HelperState) -> dict:
+#     """分类节点：根据关键词判断问题类型"""
+#     q = state["question"]
+#     if "代码" in q or "报错" in q or "bug" in q:
+#         category = "code"
+#     elif "什么是" in q or "概念" in q or "原理" in q:
+#         category = "concept"
+#     else:
+#         category = "chat"
+#     return {"category": category}          # 只返回要更新的字段
+#
+# def answer_concept_node(state: HelperState) -> dict:
+#     return {"answer": f"【概念解答】关于「{state['question']}」，它的核心思想是……"}
+#
+# def answer_code_node(state: HelperState) -> dict:
+#     return {"answer": f"【代码助手】针对「{state['question']}」，我们一步步排查……"}
+#
+# def answer_chat_node(state: HelperState) -> dict:
+#     return {"answer": "【闲聊】哈哈，没问题，我们继续聊～"}
+
+
+# ==============================================================================
+
+
+# builder = StateGraph(HelperState)          # ① 用 State 类型创建图构建器
+#
+# builder.add_node("classify", classify_node)         # ② 注册节点（名字, 函数）
+# builder.add_node("answer",   answer_concept_node)
+#
+# builder.add_edge(START, "classify")        # ③ 连边：START 是入口
+# builder.add_edge("classify", "answer")     #    分类后去回应
+# builder.add_edge("answer", END)            #    回应后结束（END 是出口）
+#
+# graph = builder.compile()                  # ④ 编译成可执行的图
+#
+# # ⑤ 运行：传入初始 State，拿回最终 State
+# result = graph.invoke({"question": "什么是大模型", "category": "", "answer": ""})
+# print(result)
+
+
+# ==============================================================================
+
+#
+# def route_by_category(state: HelperState) -> str:
+#     """路由函数：返回一个字符串路标，决定下一步去哪个节点"""
+#     return state["category"]      # 返回 "concept" / "code" / "chat"
+#
+# builder = StateGraph(HelperState)
+#
+# builder.add_node("classify", classify_node)
+# builder.add_node("concept1",  answer_concept_node)
+# builder.add_node("code1",     answer_code_node)
+# builder.add_node("chat1",     answer_chat_node)
+#
+# builder.add_edge(START, "classify")
+#
+# # 条件边：分类后，根据 route_by_category 的返回值选择目标节点
+# builder.add_conditional_edges(
+#     "classify",                  # 从哪个节点出发
+#     route_by_category,           # 路由函数
+#     {                            # 路标 → 目标节点 的映射
+#         "concept": "concept1",
+#         "code":    "code1",
+#         "chat":    "chat1",
+#     },
+# )
+#
+# builder.add_edge("concept1", END)
+# builder.add_edge("code1",    END)
+# builder.add_edge("chat1",    END)
+#
+# graph = builder.compile()
+#
+# # 试三种不同的问题，观察走了不同分支
+# for q in ["什么是装饰器", "这段代码报错怎么办", "今天天气不错"]:
+#     result = graph.invoke({"question": q, "category": "", "answer": ""})
+#     print(f"问题：{q}\n  → 分类：{result['category']}　回应：{result['answer']}\n")
+#
+
+# ==============================================================================
+
+
+
+
+
+
+
+
+
