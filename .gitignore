@@ -1,6 +1,37 @@
+# Environment files
 .env*
 *.env
 .env.local
-.env*
-*.env
-.env.local
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDE - IntelliJ/PyCharm
+.idea/
+
+# IDE - VS Code
+.vscode/
+
+# macOS system files
+.DS_Store
+
+# pytest cache
+.pytest_cache/
+
+# Type checking cache
+.mypy_cache/
+.ruff_cache/
