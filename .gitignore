@@ -3,6 +3,9 @@
 *.env
 .env.local
 
+# Sensitive files (contains database credentials)
+check_env.py
+
 # Virtual environments
 .venv/
 venv/

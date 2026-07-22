@@ -76,7 +76,7 @@ from contextlib import contextmanager
 #
 # async def grade_exam(exam_id):
 #     print(f"开始批改试卷 {exam_id}……")
-#     await asyncio.sleep(10)               # 模拟耗时的批改过程
+#     await asyncio.sleep(2)               # 模拟耗时的批改过程
 #     print(f"试卷 {exam_id} 批改完成")
 #
 # async def submit():
@@ -105,14 +105,17 @@ from contextlib import contextmanager
 
 
 
-@asynccontextmanager
-async def lifespan():
-    print("【启动】加载模型 / 建立数据库连接")
-    yield                              # yield 之前 = 启动逻辑；之后 = 关闭逻辑
-    print("【关闭】释放资源 / 清理缓存")
+# @asynccontextmanager
+# async def lifespan():
+#     print("【启动】加载模型 / 建立数据库连接")
+#     yield                              # yield 之前 = 启动逻辑；之后 = 关闭逻辑
+#     print("【关闭】释放资源 / 清理缓存")
+#
+# async def main():
+#     async with lifespan():
+#         print("应用运行中，处理请求……")
+#
+# asyncio.run(main())
 
-async def main():
-    async with lifespan():
-        print("应用运行中，处理请求……")
 
-asyncio.run(main())
+
