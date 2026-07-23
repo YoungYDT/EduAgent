@@ -3,7 +3,6 @@ import os
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage
-from openai.resources.beta.threads import messages
 from pydantic import BaseModel, Field
 
 load_dotenv()  # 从 .env 文件加载环境变量
