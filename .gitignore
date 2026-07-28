@@ -30,6 +30,10 @@ dist/
 # Sample files (may contain personal privacy data)
 samples/
 
+# Generated output (may contain personal data from resumes)
+*.json.bak
+backend/agents/resume/resume.json
+
 # IDE - IntelliJ/PyCharm
 .idea/
 
