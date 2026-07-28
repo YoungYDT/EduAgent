@@ -27,6 +27,9 @@ dist/
 *.db
 *.sqlite3
 
+# Sample files (may contain personal privacy data)
+samples/
+
 # IDE - IntelliJ/PyCharm
 .idea/
 
