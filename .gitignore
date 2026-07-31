@@ -34,6 +34,9 @@ samples/
 *.json.bak
 backend/agents/resume/resume.json
 
+# ML model weights (large files, should not be in version control)
+backend/models/
+
 # IDE - IntelliJ/PyCharm
 .idea/
 
