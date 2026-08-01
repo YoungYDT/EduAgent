@@ -37,6 +37,9 @@ backend/agents/resume/resume.json
 # ML model weights (large files, should not be in version control)
 backend/models/
 
+# Cloud upload temp files
+*.baiduyun.uploading.cfg
+
 # IDE - IntelliJ/PyCharm
 .idea/
 

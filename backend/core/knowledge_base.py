@@ -1,21 +1,12 @@
 # backend/core/knowledge_base.py(阶段版：仅含 BGEMEmbedder + 数据类，5.6 补充 KnowledgeBaseClient)
 
-import hashlib
+
 import os
-import time
-from dataclasses import dataclass, field
-from typing import Optional
-
-from backend.config import get_settings
-from backend.core.logger import get_logger
-
 import hashlib
 import time
 from dataclasses import dataclass, field
 from typing import Optional
-
 from pymilvus import MilvusClient, AnnSearchRequest, WeightedRanker
-
 from backend.config import get_settings
 from backend.core.logger import get_logger
 
@@ -285,6 +276,115 @@ class KnowledgeBaseClient:
         raw = f"{document_id}_{chunk_index}_{content[:50]}"
         return hashlib.md5(raw.encode()).hexdigest()
 
+    # ── 检索配置 ─────────────────────────────────────────────
+    VECTOR_TOP_K = 10  # Hybrid 召回的候选数量，传给 Reranker 精排
+    ANN_EF = 64  # HNSW 搜索时候选集大小(精度/速度平衡点)
+
+    def _hybrid_search(
+            self,
+            query_embedding: list[float],
+            query_sparse: dict,
+            top_k: int,
+            filters: Optional[str] = None,
+    ) -> list[dict]:
+        """
+        对 knowledge_domain 做 Hybrid 检索(Dense + Sparse → WeightedRanker 融合)。
+
+        两个 AnnSearchRequest 分别构造 Dense 和 Sparse 检索请求，
+        由 Milvus 在服务端并行执行后，用 WeightedRanker 加权融合排序。
+
+        Args:
+            query_embedding: Dense Query 向量(1024 维，来自 encode_query)
+            query_sparse:    Sparse Query 向量({token_id: weight}，来自 encode_query)
+            top_k:           每路召回数量(融合后同样取 top_k)
+            filters:         Milvus bool 表达式，如 'tenant_id == "xxx"'
+
+        Returns:
+            候选文档列表，每项含 "content" / "score" / "metadata"。
+            score 是 WeightedRanker 的加权排序信号，不是概率，
+            直接交给 5.7 节的 Reranker 做精细打分。
+        """
+        try:
+            # ── Dense ANN 检索请求 ─────────────────────────────────────
+            # COSINE 度量匹配 BGE-M3 dense 向量(L2 归一化后等价于余弦相似度)
+            # ef=64：HNSW 搜索时的候选集大小，越大精度越高，64 是精度/速度平衡点
+            dense_req = AnnSearchRequest(
+                data=[query_embedding],
+                anns_field="embedding",
+                param={
+                    "metric_type": "COSINE",
+                    "params": {"ef": self.ANN_EF},
+                },
+                limit=top_k,
+                expr=filters,
+            )
+
+            # ── Sparse 关键词检索请求 ──────────────────────────────────
+            # IP(内积)是 BGE-M3 lexical_weights 的标准度量
+            sparse_req = AnnSearchRequest(
+                data=[query_sparse],
+                anns_field="sparse_embedding",
+                param={"metric_type": "IP"},
+                limit=top_k,
+                expr=filters,
+            )
+
+            output_fields = [
+                "content", "source_name", "chunk_type",
+                "course_id", "document_id", "chunk_index",
+            ]
+
+            # ── WeightedRanker(0.7, 0.3) ──────────────────────────────
+            # 第一个权重对应第一个请求(Dense)，第二个对应第二个请求(Sparse)
+            # 两路结果在 Milvus 服务端并行检索，融合后返回
+            results = self._client.hybrid_search(
+                collection_name=COLLECTION_NAME,
+                reqs=[dense_req, sparse_req],
+                ranker=WeightedRanker(0.7, 0.3),
+                limit=top_k,
+                output_fields=output_fields,
+            )
+
+            # ── 解析结果 ───────────────────────────────────────────────
+            # MilvusClient 的 hybrid_search 结果用 distance 字段存融合后的分数
+            # 这个分数是排序信号，不是概率，不做任何额外处理，直接传给 Reranker
+            candidates = []
+            for hit in results[0]:
+                candidates.append({
+                    "content": hit["entity"].get("content") or "",
+                    "score": hit.get("distance") or 0.0,
+                    "metadata": {
+                        "source_name": hit["entity"].get("source_name") or "",
+                        "chunk_type": hit["entity"].get("chunk_type") or "text",
+                        "course_id": hit["entity"].get("course_id") or "",
+                        "document_id": hit["entity"].get("document_id") or "",
+                        "chunk_index": hit["entity"].get("chunk_index") or 0,
+                    },
+                })
+
+            logger.info(
+                "knowledge_base.hybrid_search_done",
+                candidates=len(candidates),
+            )
+            return candidates
+
+        except Exception as e:
+            logger.error("knowledge_base.hybrid_search_failed", error=str(e))
+            return []
+
+    @staticmethod
+    def _build_filter(tenant_id: str, course_id: Optional[str] = None) -> str:
+        """
+        构建 Milvus bool 过滤表达式。
+        对 tenant_id / course_id 做转义，防止 filter 表达式注入。
+        """
+        safe_tenant = tenant_id.replace('"', '\\"')
+        expr = f'tenant_id == "{safe_tenant}"'
+        if course_id:
+            safe_course = course_id.replace('"', '\\"')
+            expr += f' and course_id == "{safe_course}"'
+        return expr
+
 
 if __name__ == '__main__':
     # embedder = BGEMEmbedder.get_instance()
@@ -305,14 +405,36 @@ if __name__ == '__main__':
     # print(f"sparse 前5项：{list(sparse_list[0].items())[:5]}")
     # ==============================================================================
 
-    import uuid
-    from scripts.build_knowledge_base import load_document, split_documents, embed_chunks
+    # import uuid
+    # from scripts.build_knowledge_base import load_document, split_documents, embed_chunks
+    #
+    # file_path = "/Users/apple/Desktop/pythonProject/Agent/samples/关于PDF加载的进阶面试题.md"
+    #
+    # docs = load_document(file_path)
+    # chunks = split_documents(docs, file_path)
+    # all_doc_chunks = embed_chunks(chunks, course_id=str(uuid.uuid4()), document_id=str(uuid.uuid4()))
+    #
+    # kb = KnowledgeBaseClient()
+    # kb.upsert_chunks(chunks=all_doc_chunks)
 
-    file_path = "/Users/apple/Desktop/pythonProject/Agent/samples/关于PDF加载的进阶面试题.md"
 
-    docs = load_document(file_path)
-    chunks = split_documents(docs, file_path)
-    all_doc_chunks = embed_chunks(chunks, course_id=str(uuid.uuid4()), document_id=str(uuid.uuid4()))
+    from dotenv import load_dotenv
+    load_dotenv(".env.local")
+
+    query = "商品聚合大模型中双塔召回架构是怎么设计的？"
+    embedder = BGEMEmbedder.get_instance()
+    dense, sparse = embedder.encode_query(query)
+    print(f"dense 维度：{len(dense)}，sparse 词数：{len(sparse)}")
 
     kb = KnowledgeBaseClient()
-    kb.upsert_chunks(chunks=all_doc_chunks)
+    candidates = kb._hybrid_search(
+        query_embedding=dense,
+        query_sparse=sparse,
+        top_k=10,
+        filters='tenant_id == "tenant_default"',
+    )
+
+    print(f"召回候选数：{len(candidates)}")
+    for i, c in enumerate(candidates[:3]):
+        print(f"\n[{i + 1}] score={c['score']:.4f}  来源：{c['metadata']['source_name']}")
+        print(f"     {c['content'][:80]}...")
