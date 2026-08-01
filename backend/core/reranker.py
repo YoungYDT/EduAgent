@@ -125,7 +125,108 @@ class BGEReranker:
 
         return top_results, confidence
 
+# backend/core/reranker.py(续，追加到文件末尾)
+
+def retrieve(
+    query: str,
+    tenant_id: str,
+    course_id: Optional[str] = None,
+    recall_top_k: int = 10,
+    rerank_top_k: int = 3,
+) -> tuple[list[RankedDocument], float]:
+    """
+    Hybrid 召回 → BGE 精排一体化 Pipeline。
+
+    调用方只需传 Query 文本和租户/课程参数，向量化在内部完成。
+
+    Args:
+        query:        用户 Query 文本
+        tenant_id:    租户 ID(Milvus 过滤条件)
+        course_id:    课程 ID(可选，进一步缩小检索范围)
+        recall_top_k: Hybrid 召回数量(默认 10，送给精排)
+        rerank_top_k: 精排后返回数量(默认 3，送给 LLM)
+
+    Returns:
+        (ranked_docs, confidence)
+        ranked_docs:  精排后 Top-rerank_top_k 文档
+        confidence:   Top-1 文档的 BGE 置信度 [0, 1]
+    """
+    from backend.core.knowledge_base import BGEMEmbedder, KnowledgeBaseClient  # 延迟导入，避免循环依赖
+
+    # ── 第一步：向量化(在 Pipeline 内部完成，调用方无需感知)──────
+    embedder = BGEMEmbedder.get_instance()
+    dense_vec, sparse_vec = embedder.encode_query(query)
+
+    # ── 第二步：Hybrid 召回 ─────────────────────────────────────────
+    kb = KnowledgeBaseClient()
+    filters = kb._build_filter(tenant_id, course_id)
+    candidates = kb._hybrid_search(
+        query_embedding=dense_vec,
+        query_sparse=sparse_vec,
+        top_k=recall_top_k,
+        filters=filters,
+    )
+
+    if not candidates:
+        logger.info("retrieve.empty", query_preview=query[:50])
+        return [], 0.0
+
+    # ── 第三步：精排 ────────────────────────────────────────────────
+    reranker = BGEReranker.get_instance()
+    return reranker.rerank_with_confidence(query, candidates, top_k=rerank_top_k)
+
+
 
 if __name__ == '__main__':
+    import sys
+
+    sys.path.insert(0, str(__file__).split("/backend/")[0])
+    from dotenv import load_dotenv
+
+    load_dotenv(".env.local")
+
+    # ── 测试一：BGEReranker 精排(静态候选，不依赖 Milvus)──────────────
+    query = "商品聚合大模型中 Hard Negative Sampling 怎么实现？"
+    candidates = [
+        {
+            "content": "Hard Negative Sampling 是一种负样本挖掘策略，选取与正样本相似但标签不同的样本作为难负例，强迫模型学习细粒度区分能力。在商品召回场景中，通常从 Top-K 召回结果中排除正样本后取前几条作为难负例。",
+            "metadata": {"source_name": "sample2 > Hard Negative Sampling"},
+        },
+        {
+            "content": "双塔召回模型(Bi-Encoder)将用户和商品分别编码为向量，通过内积计算相关性。模型训练阶段使用 In-Batch Negative 策略，将同批次的其他商品作为随机负样本。",
+            "metadata": {"source_name": "sample2 > 双塔召回"},
+        },
+        {
+            "content": "Qwen VL 是阿里巴巴开源的视觉语言大模型，支持图文混合输入。微调时需要准备图文对数据，使用 LlamaFactory 或 MS-SWIFT 框架进行 LoRA 微调。",
+            "metadata": {"source_name": "sample2 > Qwen VL 微调"},
+        },
+        {
+            "content": "PEFT(Parameter-Efficient Fine-Tuning)是一类只更新少量参数的微调方法，LoRA 是其中最常用的变体，通过低秩矩阵分解减少可训练参数数量。",
+            "metadata": {"source_name": "sample2 > PEFT/LoRA"},
+        },
+    ]
+
     reranker = BGEReranker.get_instance()
-    
+    ranked_docs, confidence = reranker.rerank_with_confidence(
+        query=query,
+        documents=candidates,
+        top_k=3,
+    )
+
+    print(f"置信度：{confidence:.4f}({'高置信度' if confidence >= 0.75 else '低置信度'})\n")
+    for i, doc in enumerate(ranked_docs):
+        print(f"[{i + 1}] score={doc.score:.4f}  来源：{doc.metadata.get('source_name', '')}")
+        print(f"     {doc.content[:80]}\n")
+
+    print("\n--- retrieve() Pipeline 测试 ---")
+    ranked_docs2, confidence2 = retrieve(
+        query="LlamaFactory 怎么做 Qwen VL 微调？",
+        tenant_id="tenant_default",
+        course_id=None,  # 不限课程
+    )
+    print(f"置信度：{confidence2:.4f}({'高置信度' if confidence2 >= 0.75 else '低置信度'})\n")
+    for i, doc in enumerate(ranked_docs2):
+        print(f"[{i + 1}] score={doc.score:.4f}  来源：{doc.metadata.get('source_name', '')}")
+        print(f"     {doc.content[:80]}\n")
+
+
