@@ -30,17 +30,18 @@ class Settings(BaseSettings):
 
     # ── Milvus 向量库 ──
     milvus_host: str = "localhost"
-    milvus_port: int = 19531  # 本机 19530 已占用，隔离到 19531
+    milvus_port: int = 19530  # 本机 19530 已占用，隔离到 19531
 
     # ── 大模型（DeepSeek）──
     deepseek_api_key: str  # 必填：DeepSeek 的 API Key
     deepseek_base_url: str = "https://api.deepseek.com/v1"  # DeepSeek 接口地址
-    deepseek_model_chat: str = "deepseek-chat"  # 对话模型名
+    deepseek_model_chat: str = "deepseek-v4-flash"  # 对话模型名
     deepseek_model_coder: str = "deepseek-coder"  # 代码模型名
 
     # ── 本地模型权重路径 ──
     reranker_model_path: str = "./models/reranker/bge-reranker-large"  # 精排模型
     classifier_model_path: str = "./models/classifier/all-MiniLM-L6-v2"  # 意图分类模型
+    finetuned_classifier_path: str ="./models/classifier/query-classifier-finetuned"
     bge_m3_model_path: str = "./models/embedding/bge-m3"  # 嵌入模型
 
     # ── JWT 认证 ──

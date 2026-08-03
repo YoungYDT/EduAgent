@@ -338,8 +338,12 @@ def get_query_classifier() -> QueryClassifier:
 
 
 if __name__ == '__main__':
-    classifier = QueryClassifier(
-        model_path="/Users/apple/Desktop/pythonProject/Agent/backend/models/classifier/all-MiniLM-L6-v2")
-    rows = classifier._load_jsonl("/Users/apple/Desktop/pythonProject/Agent/data/training_data.jsonl")
-    res = classifier._stratified_split(rows, val_ratio=0.1, test_ratio=0.1, seed=42)
-    print(len(res[0]), len(res[1]), len(res[2]))
+    # classifier = QueryClassifier(
+    #     model_path="/Users/apple/Desktop/pythonProject/Agent/backend/models/classifier/all-MiniLM-L6-v2")
+    # rows = classifier._load_jsonl("/Users/apple/Desktop/pythonProject/Agent/data/training_data.jsonl")
+    # res = classifier._stratified_split(rows, val_ratio=0.1, test_ratio=0.1, seed=42)
+    # print(len(res[0]), len(res[1]), len(res[2]))
+
+    qc = QueryClassifier()
+    res = qc.classify(text="商品聚合这个项目有什么内容")
+    print(res)
