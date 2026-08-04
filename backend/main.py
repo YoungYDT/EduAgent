@@ -22,7 +22,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(resume.router, prefix="/resume", tags=["resume"])
 
 app.mount("/mcp/kb",     kb_mcp.streamable_http_app())
-app.mount("/mcp/search", ws_mcp.streamable_http_app())
+app.mount("/mcp/web-search", ws_mcp.streamable_http_app())
 
 
 if __name__ == '__main__':
