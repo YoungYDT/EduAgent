@@ -324,7 +324,8 @@ async def save_results_node(state: ResumeState) -> dict:
     async with AsyncSessionLocal() as session:  # 用统一的 SQLAlchemy 异步会话
         try:
             await session.execute(
-                text("""
+                text(
+                    """
                     UPDATE resume_reviews
                     SET structured_data = :structured_data,
                         scores          = :scores,

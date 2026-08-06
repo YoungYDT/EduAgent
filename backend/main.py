@@ -1,6 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
-from backend.api.v1 import auth,resume
+from backend.api.v1 import auth,resume,qa
 from contextlib import asynccontextmanager
 from backend.mcp.knowledge_base_server import mcp as kb_mcp
 from backend.mcp.web_search_server import mcp as ws_mcp
@@ -18,8 +18,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
-
 app.include_router(resume.router, prefix="/resume", tags=["resume"])
+app.include_router(qa.router, prefix="/qa", tags=["qa"])
 
 app.mount("/mcp/kb",     kb_mcp.streamable_http_app())
 app.mount("/mcp/web-search", ws_mcp.streamable_http_app())

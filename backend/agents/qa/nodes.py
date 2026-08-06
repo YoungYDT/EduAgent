@@ -659,6 +659,67 @@ async def generate_direct_node(state: QAState) -> dict:
         },
     }
 
+# ──────────────────────────────────────────────────────────────
+# 节点：generate_general — 通用问题直答(跳过 RAG)
+# ──────────────────────────────────────────────────────────────
+
+async def generate_general_node(state: QAState) -> dict:
+    """
+    通用问题直答节点(query_type=GENERAL)。
+
+    适用于：打招呼、问时间、闲聊等与课程无关的问题。
+    联网模式下若 web_search_results 非空，注入搜索结果提供时效性信息。
+    """
+    query       = state["original_query"]
+    messages    = state.get("messages", [])
+    web_results = state.get("web_search_results") or []
+
+    web_context = ""
+    web_sources: list[str] = []
+    if web_results:
+        snippets = "\n".join(
+            f"  [{i + 1}] {r.get('title', '')}({r.get('url', '')})\n"
+            f"      {r.get('snippet', '')[:300]}"
+            for i, r in enumerate(web_results)
+        )
+        web_context = f"【Web 搜索结果】\n{snippets}\n\n"
+        web_sources = [r.get("url", "") for r in web_results if r.get("url")]
+
+    history_text = _format_history_for_prompt(messages[-6:])
+    prompt = GENERAL_ANSWER_PROMPT.format(
+        query=query,
+        history=history_text,
+        current_time=_current_datetime_str(),
+        web_context=web_context,
+    )
+
+    llm = get_llm("qa", streaming=True)
+    response = await llm.ainvoke([HumanMessage(content=prompt)])
+    answer_text = _get_message_content(response).strip()
+
+    answer_mode = "web_augmented" if web_sources else "general"
+
+    logger.info(
+        "generate_general.done",
+        answer_length=len(answer_text),
+        web_sources=len(web_sources),
+    )
+
+    return {
+        "answer":      answer_text,
+        "sources":     web_sources,
+        "answer_mode": answer_mode,
+        "messages":    [AIMessage(content=answer_text)],
+        "should_summarize": should_trigger_summary(messages),
+        "structured_output": {
+            "answer":      answer_text,
+            "sources":     web_sources,
+            "confidence":  1.0,
+            "answer_mode": answer_mode,
+        },
+    }
+
+
 
 # ──────────────────────────────────────────────────────────────
 # 节点：enqueue_pending — 低置信度问题入队(纯副作用)
