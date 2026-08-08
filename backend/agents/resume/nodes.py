@@ -22,18 +22,12 @@ logger = get_logger(__name__)
 
 # ── 六维度定义(名称 / 权重 / 评分侧重)。权重之和 = 1.0 ──
 SIX_DIMENSIONS = [
-    {"key": "project_depth", "name": "项目深度", "weight": 0.30,
-     "focus": "项目描述是否有量化数据、技术选型理由、个人贡献、难点解决"},
-    {"key": "tech_match", "name": "技术匹配度", "weight": 0.25,
-     "focus": "技术栈是否与目标岗位匹配，技能描述是否有层次(熟练/了解/掌握)"},
-    {"key": "expression", "name": "表达规范性", "weight": 0.15,
-     "focus": "动词开头、STAR 结构、无错别字、无主语省略歧义"},
-    {"key": "structure", "name": "简历结构", "weight": 0.15,
-     "focus": "模块完整性、排版逻辑、信息密度、重要内容是否放前面"},
-    {"key": "quantification", "name": "量化程度", "weight": 0.10,
-     "focus": "性能指标、用户量、优化幅度等量化数据的使用情况"},
-    {"key": "authenticity", "name": "真实可信度", "weight": 0.05,
-     "focus": "表述是否夸大、技术深度描述是否与经验年限匹配、时间线是否合理"},
+    {"key": "project_depth", "name": "项目深度", "weight": 0.30, "focus": "项目描述是否有量化数据、技术选型理由、个人贡献、难点解决"},
+    {"key": "tech_match", "name": "技术匹配度", "weight": 0.25, "focus": "技术栈是否与目标岗位匹配，技能描述是否有层次(熟练/了解/掌握)"},
+    {"key": "expression", "name": "表达规范性", "weight": 0.15, "focus": "动词开头、STAR 结构、无错别字、无主语省略歧义"},
+    {"key": "structure", "name": "简历结构", "weight": 0.15, "focus": "模块完整性、排版逻辑、信息密度、重要内容是否放前面"},
+    {"key": "quantification", "name": "量化程度", "weight": 0.10, "focus": "性能指标、用户量、优化幅度等量化数据的使用情况"},
+    {"key": "authenticity", "name": "真实可信度", "weight": 0.05, "focus": "表述是否夸大、技术深度描述是否与经验年限匹配、时间线是否合理"},
 ]
 
 
@@ -313,7 +307,8 @@ async def save_results_node(state: ResumeState) -> dict:
 
     # 留一份完整结果给上层(API 可直接用)
     structured_output = {
-        "review_id": review_id, "student_id": state["student_id"],
+        "review_id": review_id,
+        "student_id": state["student_id"],
         "structured": state.get("structured"),
         "weighted_score": state.get("weighted_score", 0),
         "dimension_scores": state.get("dimension_scores", []),
@@ -382,6 +377,8 @@ if __name__ == "__main__":
         state.update(result3)
 
         result4 = await diagnose_issues_node(state)
+        print(result4)
+
         state.update(result4)
 
         result5 = await generate_summary_node(state)

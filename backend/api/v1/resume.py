@@ -86,11 +86,21 @@ async def upload_resume(
 
     # 3. 准备初始 State，后台启动图执行
     initial_state = {
-        "messages": [], "student_id": student_id, "tenant_id": tenant_id,
-        "review_id": review_id, "pdf_minio_path": "", "pdf_local_path": tmp_path,
-        "raw_text": "", "page_count": 0, "structured": None,
-        "dimension_scores": [], "weighted_score": 0.0, "issues": [],
-        "summary": None, "fallback_used": False, "structured_output": None,
+        "messages": [],
+        "student_id": student_id,
+        "tenant_id": tenant_id,
+        "review_id": review_id,
+        "pdf_minio_path": "",
+        "pdf_local_path": tmp_path,
+        "raw_text": "",
+        "page_count": 0,
+        "structured": None,
+        "dimension_scores": [],
+        "weighted_score": 0.0,
+        "issues": [],
+        "summary": None,
+        "fallback_used": False,
+        "structured_output": None,
     }
 
     def _on_task_done(t: asyncio.Task):

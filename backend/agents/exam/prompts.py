@@ -58,10 +58,13 @@ SUBJECTIVE_THINK_PROMPT = """在批改这道简答题之前，请先进行深入
 
 直接输出分析内容，不加任何前缀标签。"""
 
-CODE_QUALITY_REVIEW_PROMPT = """请对以下代码题的学员提交代码进行质量评估。
+CODE_REVIEW_PROMPT = """请对以下代码题的学员提交代码进行质量评估。
 
 【题目要求】
 {question}
+
+【参考实现（标准答案，用于对照学员代码是否正确）】
+{reference_solution}
 
 【学员代码】
 {code}
